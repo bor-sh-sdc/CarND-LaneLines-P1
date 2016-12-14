@@ -80,12 +80,9 @@ def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
     """
     `img` should be the output of a Canny transform.
         
-    Returns an image with hough lines drawn.
+    Returns hough lines
     """
-    lines = cv2.HoughLinesP(img, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
-    line_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
-    draw_lines(line_img, lines)
-    return line_img
+    return cv2.HoughLinesP(img, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
 
 # Python 3 has support for cool math symbols.
 
@@ -101,7 +98,46 @@ def weighted_img(img, initial_img, α=0.8, β=1., λ=0.):
     initial_img * α + img * β + λ
     NOTE: initial_img and img must be the same shape!
     """
+    
     return cv2.addWeighted(initial_img, α, img, β, λ)
+
+def find_lane_lines(img, path):
+    gray = grayscale(np.copy(image))
+
+    # Define a kernel size and apply Gaussian smoothing
+    kernel_size = 3
+    blur_gray = gaussian_blur(gray, kernel_size)
+    #blur_gray = sobely(gray)
+
+    # Define our parameters for Canny and apply
+    low_threshold = 50
+    high_threshold = 150
+    edges = canny(blur_gray, low_threshold, high_threshold)
+
+    # This time we are defining a four sided polygon to mask
+    imshape = image.shape
+    upper_thickness=50
+    hight=60
+    left_bottom=60
+    right_bottom=50
+    vertices = np.array([[(left_bottom, imshape[0]),(imshape[1]/2 - upper_thickness, imshape[0]/2 + hight), (imshape[1]/2 + upper_thickness, imshape[0]/2 + hight), (imshape[1] - right_bottom ,imshape[0])]], dtype=np.int32)
+
+    masked_edges = region_of_interest(edges, vertices)
+
+    # Define the Hough transform parameters
+    rho = 1 # distance resolution in pixels of the Hough grid
+    theta = np.pi/180 # angular resolution in radians of the Hough grid
+    threshold = 20     # minimum number of votes (intersections in Hough grid cell)
+    min_line_length = 10 #minimum number of pixels making up a line
+    max_line_gap = 5    # maximum gap in pixels between connectable line segments
+
+    # Run Hough on edge detected image
+    # Output "lines" is an array containing endpoints of detected line segments
+    lines = hough_lines(masked_edges, rho, theta, threshold, min_line_length, max_line_gap)
+
+
+    lines_edges = np.copy(image)
+    draw_lines(lines_edges, lines)
 
 # let see what cv2 version is there
 print(cv2.__version__)
@@ -115,48 +151,16 @@ image = mpimg.imread('test_images/solidWhiteRight.jpg')
 #printing out some stats and plotting
 print('This image is:', type(image), 'with dimesions:', image.shape)
 
-gray = grayscale(np.copy(image))
-
-# Define a kernel size and apply Gaussian smoothing
-kernel_size = 3
-blur_gray = gaussian_blur(gray, kernel_size)
-#blur_gray = sobely(gray)
-
-# Define our parameters for Canny and apply
-low_threshold = 40
-high_threshold = 120
-edges = canny(blur_gray, low_threshold, high_threshold)
-
-# This time we are defining a four sided polygon to mask
-imshape = image.shape
-upper_thickness=50
-hight=60
-left_bottom=60
-right_bottom=50
-vertices = np.array([[(left_bottom, imshape[0]),(imshape[1]/2 - upper_thickness, imshape[0]/2 + hight), (imshape[1]/2 + upper_thickness, imshape[0]/2 + hight), (imshape[1] - right_bottom ,imshape[0])]], dtype=np.int32)
-
-masked_edges = region_of_interest(edges, vertices)
-
-# Define the Hough transform parameters
-rho = 1 # distance resolution in pixels of the Hough grid
-theta = np.pi/180 # angular resolution in radians of the Hough grid
-threshold = 20     # minimum number of votes (intersections in Hough grid cell)
-min_line_length = 10 #minimum number of pixels making up a line
-max_line_gap = 5    # maximum gap in pixels between connectable line segments
-
-# Run Hough on edge detected image
-# Output "lines" is an array containing endpoints of detected line segments
-lines = hough_lines(masked_edges, rho, theta, threshold, min_line_length, max_line_gap)
-
 # Draw the lines on the image
-lines_edges = weighted_img(lines, image)
+#lines_edges = weighted_img(image, lines_edges)
 
-plt.subplot(221), plt.imshow(image)
+plt.subplot(321), plt.imshow(image)
 x = [vertices[0,0][0],vertices[0,1][0],vertices[0,2][0],vertices[0,3][0]]
 y = [vertices[0,0][1],vertices[0,1][1],vertices[0,2][1],vertices[0,3][1]]
 plt.plot(x,y, 'b--', lw=4)
-plt.subplot(222), plt.imshow(lines_edges)
-plt.subplot(223), plt.imshow(edges,  cmap='gray')
-plt.subplot(224), plt.imshow(gray, cmap='gray')
+plt.subplot(322), plt.imshow(lines_edges)
+plt.subplot(323), plt.imshow(edges,  cmap='gray')
+plt.subplot(324), plt.imshow(gray, cmap='gray')
+#plt.subplot(325), plt.imshow(img_lines)
 
 plt.show()
