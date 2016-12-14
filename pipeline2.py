@@ -1,6 +1,4 @@
 import os
-print(os.listdir("test_images/"))
-
 import math
 #importing some useful packages
 import matplotlib.pyplot as plt
@@ -101,12 +99,27 @@ def weighted_img(img, initial_img, α=0.8, β=1., λ=0.):
     
     return cv2.addWeighted(initial_img, α, img, β, λ)
 
-def find_lane_lines(img, path):
+def find_lane_lines(path=None, toplot=False):
+    """
+    big bang line finding approach - improvable but step by step
+    at the moment not really flexible (not the goal) and everything hard coded
+    """
+    if not path:
+        return
+    #reading in an image
+    image = mpimg.imread(path)
+
+    print(image.__type__)
+
+    #printing out some stats and plotting
+    print('This image is:', type(image), 'with dimesions:', image.shape)
+
     gray = grayscale(np.copy(image))
 
     # Define a kernel size and apply Gaussian smoothing
     kernel_size = 3
     blur_gray = gaussian_blur(gray, kernel_size)
+    ## played around with sobel - lets skip it for the moment
     #blur_gray = sobely(gray)
 
     # Define our parameters for Canny and apply
@@ -125,6 +138,7 @@ def find_lane_lines(img, path):
     masked_edges = region_of_interest(edges, vertices)
 
     # Define the Hough transform parameters
+    # TODO: explanation in jupyter why choosing this parameter?
     rho = 1 # distance resolution in pixels of the Hough grid
     theta = np.pi/180 # angular resolution in radians of the Hough grid
     threshold = 20     # minimum number of votes (intersections in Hough grid cell)
@@ -135,32 +149,44 @@ def find_lane_lines(img, path):
     # Output "lines" is an array containing endpoints of detected line segments
     lines = hough_lines(masked_edges, rho, theta, threshold, min_line_length, max_line_gap)
 
-
     lines_edges = np.copy(image)
     draw_lines(lines_edges, lines)
+    ## why weighted_img?
+    #lines_edges = weighted_img(image, lines_edges)
+
+    if toplot:
+       plot_images(img, vertices, lines_edges, edges, gray)
+
+    if path:
+        path = path.replace('.jpg','LinesAdded.jpg')
+        mpimg.imsave(path, lines_edges)
+
+def plot_images(image, vertices, lines_edges, edges, gray):
+    """plots images - with additional vertices and some gray"""
+    plt.subplot(321), plt.imshow(image)
+    x = [vertices[0,0][0],vertices[0,1][0],vertices[0,2][0],vertices[0,3][0]]
+    y = [vertices[0,0][1],vertices[0,1][1],vertices[0,2][1],vertices[0,3][1]]
+    plt.plot(x,y, 'b--', lw=4)
+    plt.subplot(322), plt.imshow(lines_edges)
+    plt.subplot(323), plt.imshow(edges,  cmap='gray')
+    plt.subplot(324), plt.imshow(gray, cmap='gray')
+    #plt.subplot(325), plt.imshow(img_lines)
+
+    plt.show()
+
+def clean_up_images():
+    """cleans generated images"""
+    for f in os.listdir("test_images/"):
+      if f.endswith("LinesAdded.jpg"):
+          os.remove(os.path.join("test_images",f))
 
 # let see what cv2 version is there
 print(cv2.__version__)
 
 if cv2.__version__ < "3.1.0":
-  print("Oh oh this code was developed with version 3.1.0 conda") 
+  print("Oh oh this code was developed with version 3.1.0 of cv installed by conda") 
 
-#reading in an image
-image = mpimg.imread('test_images/solidWhiteRight.jpg')
+clean_up_images()
 
-#printing out some stats and plotting
-print('This image is:', type(image), 'with dimesions:', image.shape)
-
-# Draw the lines on the image
-#lines_edges = weighted_img(image, lines_edges)
-
-plt.subplot(321), plt.imshow(image)
-x = [vertices[0,0][0],vertices[0,1][0],vertices[0,2][0],vertices[0,3][0]]
-y = [vertices[0,0][1],vertices[0,1][1],vertices[0,2][1],vertices[0,3][1]]
-plt.plot(x,y, 'b--', lw=4)
-plt.subplot(322), plt.imshow(lines_edges)
-plt.subplot(323), plt.imshow(edges,  cmap='gray')
-plt.subplot(324), plt.imshow(gray, cmap='gray')
-#plt.subplot(325), plt.imshow(img_lines)
-
-plt.show()
+for image in os.listdir("test_images/"):
+  find_lane_lines('test_images/'+image)

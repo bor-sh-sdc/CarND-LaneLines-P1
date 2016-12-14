@@ -1,6 +1,4 @@
 import os
-print(os.listdir("test_images/"))
-
 import math
 #importing some useful packages
 import matplotlib.pyplot as plt
