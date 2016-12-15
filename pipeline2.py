@@ -22,6 +22,10 @@ def canny(img, low_threshold, high_threshold):
     return cv2.Canny(img, low_threshold, high_threshold)
 
 def sobely(img, ksize=5):
+    """
+    Applies the sobel transform 
+    More info: http://docs.opencv.org/3.1.0/d5/d0f/tutorial_py_gradients.html
+    """
     return cv2.Sobel(img, cv2.CV_8U,1,0,ksize)
 
 def gaussian_blur(img, kernel_size):
@@ -71,6 +75,7 @@ def draw_lines(img, lines, thickness=2, color=[255, 0, 0]):
     this function with the weighted_img() function below
     """
     # y = mx + b
+    # works so far when lines are not screwed up by some side lines - like in the switchlane image - need to improve either canny or hough - knowledge gap here
     m_right = np.mean([ ((y2-y1)/(x2-x1)) for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > 0])
     b_right = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > 0])
 
@@ -143,6 +148,7 @@ def find_lane_lines(path=None, toplot=False):
     kernel_size = 3
     blur_gray = gaussian_blur(gray, kernel_size)
     ## played around with sobel - lets skip it for the moment
+    ## looks good but some lines are aside need to check why - *brainfuck*
     #blur_gray = sobely(gray)
 
     # Define our parameters for Canny and apply
