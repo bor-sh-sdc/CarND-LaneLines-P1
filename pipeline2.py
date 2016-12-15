@@ -57,7 +57,7 @@ def region_of_interest(img, vertices):
     return masked_image
 
 
-def draw_lines(img, lines, thickness=2, color=[255, 0, 0]):
+def draw_lines(img, lines, thickness=2, edge_left=460, edge_right=510, color=[255, 0, 0]):
     """
     NOTE: this is the function you might want to use as a starting point once you want to 
     average/extrapolate the line segments you detect to map out the full
@@ -80,27 +80,27 @@ def draw_lines(img, lines, thickness=2, color=[255, 0, 0]):
     b_right = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > 0])
 
     x1 = 960
-    x2 = 510
+    x2 = edge_right
 
     y1 = int(m_right * x1 + b_right)
     y2 = int(m_right * x2 + b_right)
 
-#    cv2.line(img, (x1, y1), (x2, y2), color, thickness)
+    cv2.line(img, (x1, y1), (x2, y2), color, thickness)
 
     m_left = np.mean([ ((y2-y1)/(x2-x1)) for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) < 0])
     b_left = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) < 0])
 
     x1 = 0
-    x2 = 460
+    x2 = edge_left
 
     y1 = int(m_left * x1 + b_left)
     y2 = int(m_left * x2 + b_left)
 
-#    cv2.line(img, (x1, y1), (x2, y2), color, thickness)
+    cv2.line(img, (x1, y1), (x2, y2), color, thickness)
 
-    for line in lines:
-        for x1,y1,x2,y2 in line:
-            cv2.line(img, (x1, y1), (x2, y2), color, 2)
+    #for line in lines:
+    #    for x1,y1,x2,y2 in line:
+    #        cv2.line(img, (x1, y1), (x2, y2), color, 2)
 
 
 def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
@@ -157,31 +157,45 @@ def find_lane_lines(path=None, toplot=False):
     edges = canny(blur_gray, low_threshold, high_threshold)
 
     # This time we are defining a four sided polygon to mask
+    # - fits to the current test set camera but not in general
     imshape = image.shape
-    upper_thickness=50
-    hight=60
-    left_bottom=60
-    right_bottom=50
-    vertices = np.array([[(left_bottom, imshape[0]),(imshape[1]/2 - upper_thickness, imshape[0]/2 + hight), (imshape[1]/2 + upper_thickness, imshape[0]/2 + hight), (imshape[1] - right_bottom ,imshape[0])]], dtype=np.int32)
+    upper_left=15
+    upper_right=25
+    hight=45
+    left_bottom=80
+    right_bottom=20
+    vertices = np.array([[(left_bottom, imshape[0]),(imshape[1]/2 - upper_left, imshape[0]/2 + hight), (imshape[1]/2 + upper_right, imshape[0]/2 + hight), (imshape[1] - right_bottom ,imshape[0])]], dtype=np.int32)
 
     masked_edges = region_of_interest(edges, vertices)
 
     # Define the Hough transform parameters
     # TODO: explanation in jupyter why choosing this parameter?
+    # scenarios: 
+    # - idealistic
+    # - not flexible
+    # - unstable
+    # - error prone
+    # - no occlusions
+    # - not all roads have lines
+    # - no generalized enough
     rho = 1 # distance resolution in pixels of the Hough grid
     theta = np.pi/180 # angular resolution in radians of the Hough grid
-    threshold = 20     # minimum number of votes (intersections in Hough grid cell)
-    min_line_length = 20 #minimum number of pixels making up a line
+    # make more sensitive to outlier
+    threshold = 30     # minimum number of votes (intersections in Hough grid cell)
+    min_line_length = 5 #minimum number of pixels making up a line
     max_line_gap = 5    # maximum gap in pixels between connectable line segments
 
     # Run Hough on edge detected image
     # Output "lines" is an array containing endpoints of detected line segments
     lines = hough_lines(masked_edges, rho, theta, threshold, min_line_length, max_line_gap)
 
-    lines_edges = np.copy(image)
-    draw_lines(lines_edges, lines, 10)
+    #lines_edges = np.copy(image)
+    line_img = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)
+    draw_lines(line_img, lines, 10, vertices[0,1][0],vertices[0,2][0])
+    #draw_lines(lines_edges, lines, 10)
     ## why weighted_img?
-    #lines_edges = weighted_img(image, lines_edges)
+    ## looks pretty
+    lines_edges = weighted_img(image, line_img)
 
     if toplot:
        plot_images(image, vertices, lines_edges, edges, gray)
@@ -217,8 +231,11 @@ if cv2.__version__ < "3.1.0":
 
 clean_up_images()
 
-image="whiteCarLaneSwitch.jpg"
+#image="solidWhiteRight.jpg"
+#find_lane_lines('test_images/'+image, True)
+
+#image="whiteCarLaneSwitch.jpg"
 #find_lane_lines('test_images/'+image, True)
 
 for image in os.listdir("test_images/"):
-  find_lane_lines('test_images/'+image)
+  find_lane_lines('test_images/'+image, True)
