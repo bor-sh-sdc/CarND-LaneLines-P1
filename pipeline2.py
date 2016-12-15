@@ -53,7 +53,7 @@ def region_of_interest(img, vertices):
     return masked_image
 
 
-def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
+def draw_lines(img, lines, thickness=2, color=[255, 0, 0]):
     """
     NOTE: this is the function you might want to use as a starting point once you want to 
     average/extrapolate the line segments you detect to map out the full
@@ -70,9 +70,33 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
     If you want to make the lines semi-transparent, think about combining
     this function with the weighted_img() function below
     """
+    # y = mx + b
+    m_right = np.mean([ ((y2-y1)/(x2-x1)) for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > 0])
+    b_right = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > 0])
+
+    x1 = 960
+    x2 = 510
+
+    y1 = int(m_right * x1 + b_right)
+    y2 = int(m_right * x2 + b_right)
+
+#    cv2.line(img, (x1, y1), (x2, y2), color, thickness)
+
+    m_left = np.mean([ ((y2-y1)/(x2-x1)) for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) < 0])
+    b_left = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) < 0])
+
+    x1 = 0
+    x2 = 460
+
+    y1 = int(m_left * x1 + b_left)
+    y2 = int(m_left * x2 + b_left)
+
+#    cv2.line(img, (x1, y1), (x2, y2), color, thickness)
+
     for line in lines:
         for x1,y1,x2,y2 in line:
-            cv2.line(img, (x1, y1), (x2, y2), color, thickness)
+            cv2.line(img, (x1, y1), (x2, y2), color, 2)
+
 
 def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
     """
@@ -106,10 +130,9 @@ def find_lane_lines(path=None, toplot=False):
     """
     if not path:
         return
+    print("Processing "+path)
     #reading in an image
     image = mpimg.imread(path)
-
-    print(image.__type__)
 
     #printing out some stats and plotting
     print('This image is:', type(image), 'with dimesions:', image.shape)
@@ -142,7 +165,7 @@ def find_lane_lines(path=None, toplot=False):
     rho = 1 # distance resolution in pixels of the Hough grid
     theta = np.pi/180 # angular resolution in radians of the Hough grid
     threshold = 20     # minimum number of votes (intersections in Hough grid cell)
-    min_line_length = 10 #minimum number of pixels making up a line
+    min_line_length = 20 #minimum number of pixels making up a line
     max_line_gap = 5    # maximum gap in pixels between connectable line segments
 
     # Run Hough on edge detected image
@@ -150,12 +173,12 @@ def find_lane_lines(path=None, toplot=False):
     lines = hough_lines(masked_edges, rho, theta, threshold, min_line_length, max_line_gap)
 
     lines_edges = np.copy(image)
-    draw_lines(lines_edges, lines)
+    draw_lines(lines_edges, lines, 10)
     ## why weighted_img?
     #lines_edges = weighted_img(image, lines_edges)
 
     if toplot:
-       plot_images(img, vertices, lines_edges, edges, gray)
+       plot_images(image, vertices, lines_edges, edges, gray)
 
     if path:
         path = path.replace('.jpg','LinesAdded.jpg')
@@ -187,6 +210,9 @@ if cv2.__version__ < "3.1.0":
   print("Oh oh this code was developed with version 3.1.0 of cv installed by conda") 
 
 clean_up_images()
+
+image="whiteCarLaneSwitch.jpg"
+#find_lane_lines('test_images/'+image, True)
 
 for image in os.listdir("test_images/"):
   find_lane_lines('test_images/'+image)
