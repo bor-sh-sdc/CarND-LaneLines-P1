@@ -83,28 +83,29 @@ def draw_lines(img, lines, thickness=2, edge_left=460, edge_right=510, color=[25
     m_right = np.mean([ ((y2-y1)/(x2-x1)) for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) < np.sin(angle + width) and ((y2-y1)/(x2-x1)) > np.sin(angle - width)])
     b_right = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) < np.sin(angle + width) and ((y2-y1)/(x2-x1)) > np.sin(angle - width)])
 
-    x1 = 960
-    x2 = edge_right
+    if not np.isnan(m_right):
+        x1 = img.shape[1]
+        x2 = edge_right
+        y1 = int(m_right * x1 + b_right)
+        y2 = int(m_right * x2 + b_right)
 
-    y1 = int(m_right * x1 + b_right)
-    y2 = int(m_right * x2 + b_right)
-
-    cv2.line(img, (x1, y1), (x2, y2), color, thickness)
+        cv2.line(img, (x1, y1), (x2, y2), color, thickness)
 
     m_left = np.mean([ ((y2-y1)/(x2-x1)) for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > -np.sin(angle + width) and ((y2-y1)/(x2-x1)) < -np.sin(angle - width)])
     b_left = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > -np.sin(angle + width) and ((y2-y1)/(x2-x1)) < -np.sin(angle - width)])
 
-    x1 = 0
-    x2 = edge_left
+    if not np.isnan(m_left):
+        x1 = 0
+        x2 = edge_left
 
-    y1 = int(m_left * x1 + b_left)
-    y2 = int(m_left * x2 + b_left)
+        y1 = int(m_left * x1 + b_left)
+        y2 = int(m_left * x2 + b_left)
 
-    cv2.line(img, (x1, y1), (x2, y2), color, thickness)
+        cv2.line(img, (x1, y1), (x2, y2), color, thickness)
 
-#    for line in lines:
-#        for x1,y1,x2,y2 in line:
-#            cv2.line(img, (x1, y1), (x2, y2), color, 2)
+    for line in lines:
+        for x1,y1,x2,y2 in line:
+            cv2.line(img, (x1, y1), (x2, y2), color, 2)
 
 def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
     """
@@ -137,10 +138,10 @@ def process_image(image):
 
     # Define a kernel size and apply Gaussian smoothing
     kernel_size = 3
-    blur_gray = gaussian_blur(gray, kernel_size)
+    #blur_gray = gaussian_blur(gray, kernel_size)
     ## played around with sobel - lets skip it for the moment
     ## looks good but some lines are aside need to check why - *brainfuck*
-    #blur_gray = sobely(gray)
+    blur_gray = sobely(gray)
 
     # Define our parameters for Canny and apply
     low_threshold = 50
@@ -152,10 +153,11 @@ def process_image(image):
     imshape = image.shape
     upper_left=15
     upper_right=25
-    height=45
-    left_bottom=80
-    right_bottom=20
-    vertices = np.array([[(left_bottom, imshape[0]),(imshape[1]/2 - upper_left, imshape[0]/2 + height), (imshape[1]/2 + upper_right, imshape[0]/2 + height), (imshape[1] - right_bottom ,imshape[0])]], dtype=np.int32)
+    height=85
+    left_bottom=280
+    right_bottom=200
+    height_bottom=80
+    vertices = np.array([[(left_bottom, imshape[0] - height_bottom),(imshape[1]/2 - upper_left, imshape[0]/2 + height), (imshape[1]/2 + upper_right, imshape[0]/2 + height), (imshape[1] - right_bottom ,imshape[0] - height_bottom)]], dtype=np.int32)
 
     masked_edges = region_of_interest(edges, vertices)
 
@@ -236,11 +238,11 @@ if cv2.__version__ < "3.1.0":
 
 clean_up_images()
 
-image="solidWhiteRight.jpg"
-find_lane_lines('test_images/'+image, True)
+#image="solidWhiteRight.jpg"
+#find_lane_lines('test_images/'+image, True)
 
-image="whiteCarLaneSwitch.jpg"
-find_lane_lines('test_images/'+image, True)
+#image="whiteCarLaneSwitch.jpg"
+#find_lane_lines('test_images/'+image, True)
 
 #for image in os.listdir("test_images/"):
 #  find_lane_lines('test_images/'+image)
@@ -263,18 +265,18 @@ find_lane_lines('test_images/'+image, True)
 from moviepy.editor import VideoFileClip
 from IPython.display import HTML
 
-white_output = 'white.mp4'
-clip1 = VideoFileClip("solidWhiteRight.mp4")
-white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
-white_clip.write_videofile(white_output, audio=False)
+#white_output = 'white.mp4'
+#clip1 = VideoFileClip("solidWhiteRight.mp4")
+#white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
+#white_clip.write_videofile(white_output, audio=False)
 
 # so far some outliners - not robust
-yellow_output = 'yellow.mp4'
-clip2 = VideoFileClip('solidYellowLeft.mp4')
-yellow_clip = clip2.fl_image(process_image)
-yellow_clip.write_videofile(yellow_output, audio=False)
+#yellow_output = 'yellow.mp4'
+#clip2 = VideoFileClip('solidYellowLeft.mp4')
+#yellow_clip = clip2.fl_image(process_image)
+#yellow_clip.write_videofile(yellow_output, audio=False)
 
-#challenge_output = 'extra.mp4'
-#clip2 = VideoFileClip('challenge.mp4')
-#challenge_clip = clip2.fl_image(process_image)
-#challenge_clip.write_videofile(challenge_output, audio=False)
+challenge_output = 'extra.mp4'
+clip2 = VideoFileClip('challenge.mp4')
+challenge_clip = clip2.fl_image(process_image)
+challenge_clip.write_videofile(challenge_output, audio=False)
