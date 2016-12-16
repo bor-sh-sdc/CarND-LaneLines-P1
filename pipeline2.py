@@ -74,10 +74,14 @@ def draw_lines(img, lines, thickness=2, edge_left=460, edge_right=510, color=[25
     If you want to make the lines semi-transparent, think about combining
     this function with the weighted_img() function below
     """
+    # improve by considering only specific angle width
+    angle = 45 * np.pi / 180
+    width = 15 * np.pi / 180
+
     # y = mx + b
     # works so far when lines are not screwed up by some side lines - like in the switchlane image - need to improve either canny or hough - knowledge gap here
-    m_right = np.mean([ ((y2-y1)/(x2-x1)) for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > 0])
-    b_right = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > 0])
+    m_right = np.mean([ ((y2-y1)/(x2-x1)) for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) < np.sin(angle + width) and ((y2-y1)/(x2-x1)) > np.sin(angle - width)])
+    b_right = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) < np.sin(angle + width) and ((y2-y1)/(x2-x1)) > np.sin(angle - width)])
 
     x1 = 960
     x2 = edge_right
@@ -87,8 +91,8 @@ def draw_lines(img, lines, thickness=2, edge_left=460, edge_right=510, color=[25
 
     cv2.line(img, (x1, y1), (x2, y2), color, thickness)
 
-    m_left = np.mean([ ((y2-y1)/(x2-x1)) for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) < 0])
-    b_left = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) < 0])
+    m_left = np.mean([ ((y2-y1)/(x2-x1)) for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > -np.sin(angle + width) and ((y2-y1)/(x2-x1)) < -np.sin(angle - width)])
+    b_left = np.mean([ y2 - ((y2-y1)/(x2-x1))*x2 for line in lines for x1,y1,x2,y2 in line if ((y2-y1)/(x2-x1)) > -np.sin(angle + width) and ((y2-y1)/(x2-x1)) < -np.sin(angle - width)])
 
     x1 = 0
     x2 = edge_left
@@ -98,10 +102,9 @@ def draw_lines(img, lines, thickness=2, edge_left=460, edge_right=510, color=[25
 
     cv2.line(img, (x1, y1), (x2, y2), color, thickness)
 
-    #for line in lines:
-    #    for x1,y1,x2,y2 in line:
-    #        cv2.line(img, (x1, y1), (x2, y2), color, 2)
-
+#    for line in lines:
+#        for x1,y1,x2,y2 in line:
+#            cv2.line(img, (x1, y1), (x2, y2), color, 2)
 
 def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
     """
@@ -128,20 +131,8 @@ def weighted_img(img, initial_img, α=0.8, β=1., λ=0.):
     
     return cv2.addWeighted(initial_img, α, img, β, λ)
 
-def find_lane_lines(path=None, toplot=False):
-    """
-    big bang line finding approach - improvable but step by step
-    at the moment not really flexible (not the goal) and everything hard coded
-    """
-    if not path:
-        return
-    print("Processing "+path)
-    #reading in an image
-    image = mpimg.imread(path)
-
-    #printing out some stats and plotting
-    print('This image is:', type(image), 'with dimesions:', image.shape)
-
+def process_image(image):
+    """callback to videoclip"""
     gray = grayscale(np.copy(image))
 
     # Define a kernel size and apply Gaussian smoothing
@@ -161,10 +152,10 @@ def find_lane_lines(path=None, toplot=False):
     imshape = image.shape
     upper_left=15
     upper_right=25
-    hight=45
+    height=45
     left_bottom=80
     right_bottom=20
-    vertices = np.array([[(left_bottom, imshape[0]),(imshape[1]/2 - upper_left, imshape[0]/2 + hight), (imshape[1]/2 + upper_right, imshape[0]/2 + hight), (imshape[1] - right_bottom ,imshape[0])]], dtype=np.int32)
+    vertices = np.array([[(left_bottom, imshape[0]),(imshape[1]/2 - upper_left, imshape[0]/2 + height), (imshape[1]/2 + upper_right, imshape[0]/2 + height), (imshape[1] - right_bottom ,imshape[0])]], dtype=np.int32)
 
     masked_edges = region_of_interest(edges, vertices)
 
@@ -178,12 +169,12 @@ def find_lane_lines(path=None, toplot=False):
     # - no occlusions
     # - not all roads have lines
     # - no generalized enough
-    rho = 1 # distance resolution in pixels of the Hough grid
-    theta = np.pi/180 # angular resolution in radians of the Hough grid
+    rho = 1              # distance resolution in pixels of the Hough grid
+    theta = np.pi/180    # angular resolution in radians of the Hough grid
     # make more sensitive to outlier
-    threshold = 30     # minimum number of votes (intersections in Hough grid cell)
-    min_line_length = 5 #minimum number of pixels making up a line
-    max_line_gap = 5    # maximum gap in pixels between connectable line segments
+    threshold = 30       # minimum number of votes (intersections in Hough grid cell)
+    min_line_length = 5  # minimum number of pixels making up a line
+    max_line_gap = 5     # maximum gap in pixels between connectable line segments
 
     # Run Hough on edge detected image
     # Output "lines" is an array containing endpoints of detected line segments
@@ -197,14 +188,26 @@ def find_lane_lines(path=None, toplot=False):
     ## looks pretty
     lines_edges = weighted_img(image, line_img)
 
-    if toplot:
-       plot_images(image, vertices, lines_edges, edges, gray)
-
-    if path and path.endswith(".jpg"):
-        path = path.replace('.jpg','LinesAdded.jpg')
-        mpimg.imsave(path, lines_edges)
+#    plot_images(image, vertices, lines_edges, edges, gray)
 
     return lines_edges
+
+def find_lane_lines(path, toplot=False):
+    """
+    big bang line finding approach - improvable but step by step
+    at the moment not really flexible (not the goal) and everything hard coded
+    """
+    if path.endswith(".jpg"):
+       print("Processing "+path)
+       #reading in an image
+       image = mpimg.imread(path)
+       #printing out some stats and plotting
+       print('This image is:', type(image), 'with dimesions:', image.shape)
+
+       image = process_image(image)
+
+       path = path.replace('.jpg','LinesAdded.jpg')
+       mpimg.imsave(path, image)
 
 def plot_images(image, vertices, lines_edges, edges, gray):
     """plots images - with additional vertices and some gray"""
@@ -233,21 +236,45 @@ if cv2.__version__ < "3.1.0":
 
 clean_up_images()
 
-#image="solidWhiteRight.jpg"
-#find_lane_lines('test_images/'+image, True)
+image="solidWhiteRight.jpg"
+find_lane_lines('test_images/'+image, True)
 
-#image="whiteCarLaneSwitch.jpg"
-#find_lane_lines('test_images/'+image, True)
+image="whiteCarLaneSwitch.jpg"
+find_lane_lines('test_images/'+image, True)
 
 #for image in os.listdir("test_images/"):
-#  find_lane_lines('test_images/'+image, True)
+#  find_lane_lines('test_images/'+image)
 
 # Import everything needed to edit/save/watch video clips
 # need ffmpeg 
-# workaround on 14.04 
+# workaround on 14.04 - NOTE:did not work
+# ended up in 
+# OSError: MoviePy error: failed to read the first frame of video file solidWhiteRight.mp4.
+# That might mean that the file is corrupted. That may also mean that you are using a deprecated version of FFMPEG.
+# On Ubuntu/Debian for instance the version in the repos is deprecated. Please update to a recent version from the website.
 # https://wiki.ubuntuusers.de/FFmpeg/
 # sudo apt-get install libav-tools 
 # sudo ln -s /usr/bin/avconv /usr/bin/ffmpeg 
+# Using ppa:
+# sudo add-apt-repository ppa:mc3man/trusty-media
+# sudo apt-get update
+# sudo apt-get dist-upgrade
+# sudo apt-get install ffmpeg
 from moviepy.editor import VideoFileClip
 from IPython.display import HTML
 
+white_output = 'white.mp4'
+clip1 = VideoFileClip("solidWhiteRight.mp4")
+white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
+white_clip.write_videofile(white_output, audio=False)
+
+# so far some outliners - not robust
+yellow_output = 'yellow.mp4'
+clip2 = VideoFileClip('solidYellowLeft.mp4')
+yellow_clip = clip2.fl_image(process_image)
+yellow_clip.write_videofile(yellow_output, audio=False)
+
+#challenge_output = 'extra.mp4'
+#clip2 = VideoFileClip('challenge.mp4')
+#challenge_clip = clip2.fl_image(process_image)
+#challenge_clip.write_videofile(challenge_output, audio=False)
