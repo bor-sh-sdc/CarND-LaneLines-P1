@@ -200,9 +200,11 @@ def find_lane_lines(path=None, toplot=False):
     if toplot:
        plot_images(image, vertices, lines_edges, edges, gray)
 
-    if path:
+    if path and path.endswith(".jpg"):
         path = path.replace('.jpg','LinesAdded.jpg')
         mpimg.imsave(path, lines_edges)
+
+    return lines_edges
 
 def plot_images(image, vertices, lines_edges, edges, gray):
     """plots images - with additional vertices and some gray"""
@@ -237,5 +239,15 @@ clean_up_images()
 #image="whiteCarLaneSwitch.jpg"
 #find_lane_lines('test_images/'+image, True)
 
-for image in os.listdir("test_images/"):
-  find_lane_lines('test_images/'+image, True)
+#for image in os.listdir("test_images/"):
+#  find_lane_lines('test_images/'+image, True)
+
+# Import everything needed to edit/save/watch video clips
+# need ffmpeg 
+# workaround on 14.04 
+# https://wiki.ubuntuusers.de/FFmpeg/
+# sudo apt-get install libav-tools 
+# sudo ln -s /usr/bin/avconv /usr/bin/ffmpeg 
+from moviepy.editor import VideoFileClip
+from IPython.display import HTML
+
